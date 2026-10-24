@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>My Web Pet</title>
+  <link rel="stylesheet" href="index.css">
+</head>
+<body>
+  <div id="pet" class="sleeping">
+    <svg id="dog" viewBox="0 0 200 140">
+
+      <!-- DOG 1: standing -->
+      <g class="standing">
+        <rect class="tail" x="20" y="68" width="40" height="10" rx="5" fill="#8a5a2b" />
+
+        <rect class="leg leg-b" x="60" y="95" width="12" height="35" rx="5" fill="#8a5a2b" />
+        <rect class="leg leg-a" x="112" y="95" width="12" height="35" rx="5" fill="#8a5a2b" />
+
+        <ellipse cx="90" cy="85" rx="50" ry="28" fill="#c98b4b" />
+
+        <rect class="leg leg-a" x="50" y="95" width="12" height="35" rx="5" fill="#c98b4b" />
+        <rect class="leg leg-b" x="102" y="95" width="12" height="35" rx="5" fill="#c98b4b" />
+
+        <circle cx="150" cy="60" r="26" fill="#c98b4b" />
+        <ellipse cx="136" cy="48" rx="9" ry="18" fill="#8a5a2b" transform="rotate(15 136 48)" />
+        <ellipse cx="172" cy="68" rx="14" ry="10" fill="#e3b27a" />
+        <ellipse class="mouth" cx="174" cy="75" rx="8" ry="4" fill="#7a2e2e" />
+        <circle cx="183" cy="64" r="4" fill="#222" />
+        <circle class="eye" cx="156" cy="54" r="4" fill="#222" />
+      </g>
+
+      <!-- DOG 2: lying down asleep -->
+      <g class="lying">
+        <rect x="22" y="114" width="42" height="10" rx="5" fill="#8a5a2b" />
+
+        <ellipse cx="90" cy="108" rx="54" ry="22" fill="#c98b4b" />
+        <ellipse cx="72" cy="110" rx="26" ry="18" fill="#bd8040" />
+
+        <circle cx="148" cy="106" r="23" fill="#c98b4b" />
+        <ellipse cx="134" cy="102" rx="8" ry="15" fill="#8a5a2b" transform="rotate(12 134 102)" />
+        <ellipse cx="167" cy="113" rx="14" ry="9" fill="#e3b27a" />
+        <circle cx="178" cy="110" r="3.5" fill="#222" />
+        <line x1="150" y1="101" x2="160" y2="101" stroke="#222" stroke-width="2" stroke-linecap="round" />
+
+        <rect x="146" y="120" width="48" height="10" rx="5" fill="#c98b4b" />
+        <line x1="170" y1="122" x2="170" y2="128" stroke="#8a5a2b" stroke-width="1.5" stroke-linecap="round" />
+      </g>
+
+    </svg>
+
+    <div class="bubble">Woof!</div>
+
+    <div class="zzz">Z</div>
+  </div>
+
+  <script>
+  const pet = document.getElementById('pet');
+  const dog = document.getElementById('dog');
+  const bubble = document.querySelector('.bubble');
+
+  let mouseX = 200, mouseY = 200;
+  let petX = 200, petY = 200;
+  let lastActiveTime = Date.now();
+  let isAsleep = true;
+
+  // ----- barking -----
+  const barkWords = ['Woof!', 'Bark!', 'Arf!', 'Woof woof!'];
+  let barkTimer = null;
+
+  function bark() {
+    // pick a random word
+    bubble.textContent = barkWords[Math.floor(Math.random() * barkWords.length)];
+
+    // restart the animation: remove the class, force a refresh, add it back
+    pet.classList.remove('barking');
+    void pet.offsetWidth;
+    pet.classList.add('barking');
+
+    // stop barking after 0.9 seconds
+    clearTimeout(barkTimer);
+    barkTimer = setTimeout(function () {
+      pet.classList.remove('barking');
+    }, 900);
+  }
+
+  document.addEventListener('mousemove', function (event) {
+    if (isAsleep) return;
+    mouseX = event.clientX;
+    mouseY = event.clientY;
+    lastActiveTime = Date.now();
+  });
+
+  // ----- bark sound -----
+let audioCtx = null;
+
+function playBark() {
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+
+  const t = audioCtx.currentTime;
+
+  singleBark(t, 1);
+  // half the time, add a quieter second bark right after
+  if (Math.random() < 0.5) singleBark(t + 0.24, 0.8);
+}
+
+function singleBark(start, volume) {
+  const pitch = 0.9 + Math.random() * 0.25;
+  const dur = 0.12;
+
+  // 1. The voice: a buzzy wave sliding down in pitch
+  const osc = audioCtx.createOscillator();
+  osc.type = 'sawtooth';
+  osc.frequency.setValueAtTime(500 * pitch, start);
+  osc.frequency.exponentialRampToValueAtTime(200 * pitch, start + dur);
+
+  // 2. Two "throat" filters that shape the buzz into a vowel
+  const f1 = audioCtx.createBiquadFilter();
+  f1.type = 'bandpass';
+  f1.Q.value = 4;
+  f1.frequency.setValueAtTime(800, start);
+  f1.frequency.exponentialRampToValueAtTime(450, start + dur);
+
+  const f2 = audioCtx.createBiquadFilter();
+  f2.type = 'bandpass';
+  f2.Q.value = 4;
+  f2.frequency.setValueAtTime(1400, start);
+  f2.frequency.exponentialRampToValueAtTime(900, start + dur);
+
+  // 3. Volume shape for the voice
+  const voiceGain = audioCtx.createGain();
+  voiceGain.gain.setValueAtTime(0.0001, start);
+  voiceGain.gain.exponentialRampToValueAtTime(1.2 * volume, start + 0.02);
+  voiceGain.gain.exponentialRampToValueAtTime(0.0001, start + dur + 0.03);
+
+  osc.connect(f1);
+  osc.connect(f2);
+  f1.connect(voiceGain);
+  f2.connect(voiceGain);
+  voiceGain.connect(audioCtx.destination);
+
+  // 4. Breathy noise burst at the start
+  const length = Math.floor(audioCtx.sampleRate * 0.08);
+  const noiseBuffer = audioCtx.createBuffer(1, length, audioCtx.sampleRate);
+  const data = noiseBuffer.getChannelData(0);
+  for (let i = 0; i < length; i++) {
+    data[i] = Math.random() * 2 - 1;
+  }
+
+  const noise = audioCtx.createBufferSource();
+  noise.buffer = noiseBuffer;
+
+  const noiseFilter = audioCtx.createBiquadFilter();
+  noiseFilter.type = 'bandpass';
+  noiseFilter.frequency.value = 1500;
+  noiseFilter.Q.value = 1;
+
+  const noiseGain = audioCtx.createGain();
+  noiseGain.gain.setValueAtTime(0.15 * volume, start);
+  noiseGain.gain.exponentialRampToValueAtTime(0.0001, start + 0.07);
+
+  noise.connect(noiseFilter);
+  noiseFilter.connect(noiseGain);
+  noiseGain.connect(audioCtx.destination);
+
+  osc.start(start);
+  osc.stop(start + dur + 0.05);
+  noise.start(start);
+}
+
+  document.addEventListener('click', function (event) {
+    const wasAsleep = isAsleep;
+    const clickedDog = event.target.closest('#pet');
+
+    mouseX = event.clientX;
+    mouseY = event.clientY;
+    lastActiveTime = Date.now();
+    isAsleep = false;
+
+    // bark when waking up, or when you click on the dog itself
+    bark();
+    playBark();
+  });
+
+  function animate() {
+    let isMoving = false;
+
+    if (!isAsleep) {
+      const dx = mouseX - petX;
+      const dy = mouseY - petY;
+
+      petX = petX + dx * 0.05;
+      petY = petY + dy * 0.05;
+
+      pet.style.left = petX + 'px';
+      pet.style.top = petY + 'px';
+
+      isMoving = Math.abs(dx) + Math.abs(dy) > 8;
+
+      if (dx > 5) dog.style.transform = 'scaleX(1)';
+      if (dx < -5) dog.style.transform = 'scaleX(-1)';
+
+      const idleSeconds = (Date.now() - lastActiveTime) / 1000;
+      if (idleSeconds > 2 && !isMoving) {
+        isAsleep = true;
+      }
+    }
+
+    pet.classList.toggle('walking', isMoving);
+    pet.classList.toggle('sleeping', isAsleep);
+
+    requestAnimationFrame(animate);
+  }
+
+  animate();
+</script>
+
+</body>
+</html>
